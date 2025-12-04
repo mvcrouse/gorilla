@@ -55,7 +55,7 @@ We introduce the Berkeley Function Calling Leaderboard (BFCL), the **first compr
 
 ```bash
 # Create a new Conda environment with Python 3.10
-conda create -n BFCL python=3.10
+conda create -p ./BFCL python=3.10
 conda activate BFCL
 
 # Clone the Gorilla repository
