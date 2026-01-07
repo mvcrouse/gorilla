@@ -65,7 +65,9 @@ from bfcl_eval.model_handler.local_inference.salesforce_qwen import (
 from bfcl_eval.model_handler.local_inference.think_agent import ThinkAgentHandler
 
 #
-from bfcl_eval.model_handler.api_inference.fc_agent_completion import FCAgentCompletionsHandler
+from bfcl_eval.model_handler.api_inference.fc_agent_completion import (
+    FCAgentCompletionsHandler,
+)
 
 # -----------------------------------------------------------------------------
 # A mapping of model identifiers to their respective model configurations.
@@ -1123,13 +1125,15 @@ api_inference_model_map = {
         is_fc_model=False,
         underscore_to_dot=False,
     ),
-    "fc_agent": ModelConfig(
+    "fc-agent": ModelConfig(
         model_name="fc_agent",
         display_name="Function-Calling Agent",
-        url=None,
-        org=None,
-        license=None,
+        url="",
+        org="",
+        license="",
         model_handler=FCAgentCompletionsHandler,
+        input_price=None,
+        output_price=None,
         is_fc_model=True,
     ),
 }

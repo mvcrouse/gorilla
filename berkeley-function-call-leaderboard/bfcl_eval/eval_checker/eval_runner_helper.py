@@ -12,7 +12,9 @@ from bfcl_eval.constants.model_config import MODEL_CONFIG_MAPPING
 from bfcl_eval.utils import *
 
 
-def calculate_weighted_accuracy(accuracy_dict_list, display_na_if_category_missing=True):
+def calculate_weighted_accuracy(
+    accuracy_dict_list, display_na_if_category_missing=True
+):
     has_na = False
     total_count = 0
     total_accuracy = 0
@@ -35,7 +37,9 @@ def calculate_weighted_accuracy(accuracy_dict_list, display_na_if_category_missi
     return result
 
 
-def calculate_unweighted_accuracy(accuracy_dict_list, display_na_if_category_missing=True):
+def calculate_unweighted_accuracy(
+    accuracy_dict_list, display_na_if_category_missing=True
+):
     has_na = False
     total_count = 0
     total_accuracy = 0
@@ -82,9 +86,9 @@ def calculate_percentage_weighted_accuracy(
     dict
         A dict with the same schema as other helper functions in this module (``accuracy``, ``total_count``, ``display_accuracy``).
     """
-    assert len(accuracy_dict_list) == len(
-        weights
-    ), "Weights length must match accuracy list"
+    assert len(accuracy_dict_list) == len(weights), (
+        "Weights length must match accuracy list"
+    )
 
     has_na = False
     total_count = 0
@@ -215,7 +219,11 @@ def get_cost_latency_info(model_name, cost_data, latency_data):
         total_latency_hours = total_latency_seconds / 3600
 
         # Divide by 100 since we are doing 100x parallel inference; this is an approximation to the GPU up-time.
-        cost = total_latency_hours * H100_X8_PRICE_PER_HOUR / LOCAL_SERVER_MAX_CONCURRENT_REQUEST
+        cost = (
+            total_latency_hours
+            * H100_X8_PRICE_PER_HOUR
+            / LOCAL_SERVER_MAX_CONCURRENT_REQUEST
+        )
         cost = round(cost, 2)
 
     # Calculate latency statistics for ALL models (both API and local)
@@ -238,7 +246,9 @@ def get_category_score(score_dict: dict, test_category: str) -> dict:
     else:
         num_entry = len(
             load_dataset_entry(
-                test_category, include_prereq=False, include_language_specific_hint=False
+                test_category,
+                include_prereq=False,
+                include_language_specific_hint=False,
             )
         )
         # If a category is not being evaluated, it needs to be distinguished from the situation where the evaluation score is 0
@@ -437,27 +447,16 @@ def generate_leaderboard_csv(leaderboard_table, output_path):
         web_search_base = get_category_score(value, "web_search_base")
         web_search_no_snippet = get_category_score(value, "web_search_no_snippet")
         summary_web_search = calculate_unweighted_accuracy(
-            [
-                web_search_base,
-                web_search_no_snippet,
-            ]
+            [web_search_base, web_search_no_snippet]
         )
         memory_kv = get_category_score(value, "memory_kv")
         memory_vector = get_category_score(value, "memory_vector")
         memory_rec_sum = get_category_score(value, "memory_rec_sum")
         summary_memory = calculate_unweighted_accuracy(
-            [
-                memory_kv,
-                memory_vector,
-                memory_rec_sum,
-            ]
+            [memory_kv, memory_vector, memory_rec_sum]
         )
         overall_accuracy_agentic = calculate_unweighted_accuracy(
-            [
-                summary_web_search,
-                summary_memory,
-            ],
-            display_na_if_category_missing=False,
+            [summary_web_search, summary_memory], display_na_if_category_missing=False
         )
 
         data_agentic.append(
@@ -676,7 +675,6 @@ def generate_leaderboard_csv(leaderboard_table, output_path):
 def update_leaderboard_table_with_local_score_file(
     leaderboard_table, score_path: Path
 ) -> None:
-
     entries = score_path.iterdir()
 
     # Filter out the subdirectories

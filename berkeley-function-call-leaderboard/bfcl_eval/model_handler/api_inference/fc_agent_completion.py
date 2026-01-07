@@ -95,18 +95,21 @@ class FCAgentCompletionsHandler(BaseHandler):
 
         return inference_data
 
-    def _parse_query_response_FC(self, api_response: Any) -> dict:
-        model_responses = api_response.get("tool_calls") or api_response.get("content")
+    def _parse_query_response_FC(self, api_response: list[dict]) -> dict:
+        response = api_response[-1]
+        model_responses = response.get("tool_calls") or response.get("content")
         tool_call_ids = (
-            [func_call.id for func_call in model_responses]
+            [func_call.get("id") for func_call in model_responses]
             if isinstance(model_responses, list)
             else model_responses
         )
 
         return {
             "model_responses": model_responses,
-            # "model_responses_message_for_chat_history": model_responses_message_for_chat_history,
+            "model_responses_message_for_chat_history": api_response,
             "tool_call_ids": tool_call_ids,
+            "input_token": 0,
+            "output_token": 0,
         }
 
     def add_first_turn_message_FC(
@@ -124,7 +127,7 @@ class FCAgentCompletionsHandler(BaseHandler):
     def _add_assistant_message_FC(
         self, inference_data: dict, model_response_data: dict
     ) -> dict:
-        inference_data["messages"].append(
+        inference_data["messages"].extend(
             model_response_data["model_responses_message_for_chat_history"]
         )
         return inference_data
