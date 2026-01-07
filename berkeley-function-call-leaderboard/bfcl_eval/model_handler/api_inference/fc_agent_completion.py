@@ -1,7 +1,6 @@
 import json
 import os
 import time
-from typing import Any
 
 import requests
 from openai import RateLimitError
@@ -38,8 +37,8 @@ class FCAgentCompletionsHandler(BaseHandler):
     def decode_ast(self, result, language, has_tool_call_tag):
         decoded_output = []
         for invoked_function in result:
-            name = next(iter(invoked_function.keys()))
-            params = json.loads(invoked_function[name])
+            name = invoked_function["name"]
+            params = invoked_function["arguments"]
             decoded_output.append({name: params})
         return decoded_output
 
@@ -103,7 +102,6 @@ class FCAgentCompletionsHandler(BaseHandler):
             if isinstance(model_responses, list)
             else model_responses
         )
-
         return {
             "model_responses": model_responses,
             "model_responses_message_for_chat_history": api_response,
