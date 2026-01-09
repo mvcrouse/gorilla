@@ -29,7 +29,9 @@ from bfcl_eval.model_handler.local_inference.base_oss_handler import OSSHandler
 def get_args():
     parser = argparse.ArgumentParser()
     # Refer to model_choice for supported models.
-    parser.add_argument("--model", type=str, default="gorilla-openfunctions-v2", nargs="+")
+    parser.add_argument(
+        "--model", type=str, default="gorilla-openfunctions-v2", nargs="+"
+    )
     # Refer to test_categories for supported categories.
     parser.add_argument("--test-category", type=str, default="all", nargs="+")
 
@@ -39,7 +41,9 @@ def get_args():
     parser.add_argument("--exclude-state-log", action="store_true", default=False)
     parser.add_argument("--num-threads", required=False, type=int)
     parser.add_argument("--num-gpus", default=1, type=int)
-    parser.add_argument("--backend", default="sglang", type=str, choices=["vllm", "sglang"])
+    parser.add_argument(
+        "--backend", default="sglang", type=str, choices=["vllm", "sglang"]
+    )
     parser.add_argument("--gpu-memory-utilization", default=0.9, type=float)
     parser.add_argument("--result-dir", default=None, type=str)
     parser.add_argument("--run-ids", action="store_true", default=False)
@@ -62,13 +66,14 @@ def get_args():
     return args
 
 
-def build_handler(model_name, temperature):
+def build_handler(model_name, temperature, agent_params):
     config = MODEL_CONFIG_MAPPING[model_name]
     handler = config.model_handler(
         model_name=config.model_name,
         temperature=temperature,
         registry_name=model_name,
         is_fc_model=config.is_fc_model,
+        agent_params=agent_params,
     )
     return handler
 
@@ -85,13 +90,12 @@ def get_involved_test_entries(test_category_args, run_ids):
         for test_category in all_test_categories:
             all_test_entries_involved.extend(load_dataset_entry(test_category))
 
-    return (
-        all_test_categories,
-        all_test_entries_involved,
-    )
+    return (all_test_categories, all_test_entries_involved)
 
 
-def collect_test_cases(args, model_name, all_test_categories, all_test_entries_involved):
+def collect_test_cases(
+    args, model_name, all_test_categories, all_test_entries_involved
+):
     model_name_dir = model_name.replace("/", "_")
     model_result_dir = args.result_dir / model_name_dir
 
@@ -108,7 +112,9 @@ def collect_test_cases(args, model_name, all_test_categories, all_test_entries_i
             result_file_paths.append(
                 model_result_dir
                 / get_directory_structure_by_category(test_category)
-                / get_file_name_by_category(f"{test_category}_prereq", is_result_file=True)
+                / get_file_name_by_category(
+                    f"{test_category}_prereq", is_result_file=True
+                )
             )
 
         for file_path in result_file_paths:
@@ -146,7 +152,10 @@ def collect_test_cases(args, model_name, all_test_categories, all_test_entries_i
 
     # Skip format sensitivity test cases for FC models
     if (
-        any(is_format_sensitivity(test_category) for test_category in all_test_categories)
+        any(
+            is_format_sensitivity(test_category)
+            for test_category in all_test_categories
+        )
         and MODEL_CONFIG_MAPPING[model_name].is_fc_model
     ):
         test_cases_to_generate = [
@@ -168,7 +177,6 @@ def collect_test_cases(args, model_name, all_test_categories, all_test_entries_i
 
 
 def multi_threaded_inference(handler, test_case, include_input_log, exclude_state_log):
-
     assert type(test_case["function"]) is list
 
     try:
@@ -192,17 +200,13 @@ def multi_threaded_inference(handler, test_case, include_input_log, exclude_stat
         result = f"Error during inference: {str(e)}"
         metadata = {"traceback": traceback.format_exc()}
 
-    result_to_write = {
-        "id": test_case["id"],
-        "result": result,
-        **metadata,
-    }
+    result_to_write = {"id": test_case["id"], "result": result, **metadata}
 
     return result_to_write
 
 
 def generate_results(args, model_name, test_cases_total):
-    handler = build_handler(model_name, args.temperature)
+    handler = build_handler(model_name, args.temperature, args.agent_params)
 
     if isinstance(handler, OSSHandler):
         handler: OSSHandler
@@ -266,17 +270,19 @@ def generate_results(args, model_name, test_cases_total):
         in_flight: dict[Future, str] = {}  # future -> test_case_id
         completed = set()
 
-        with ThreadPoolExecutor(max_workers=num_threads) as pool, tqdm(
-            total=len(test_cases_total),
-            desc=f"Generating results for {model_name}",
-            position=0,         
-            leave=True,           
-            dynamic_ncols=True,   
-            mininterval=0.2,      
-            smoothing=0.1,        
-            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
-        ) as pbar:
-
+        with (
+            ThreadPoolExecutor(max_workers=num_threads) as pool,
+            tqdm(
+                total=len(test_cases_total),
+                desc=f"Generating results for {model_name}",
+                position=0,
+                leave=True,
+                dynamic_ncols=True,
+                mininterval=0.2,
+                smoothing=0.1,
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+            ) as pbar,
+        ):
             # seed initial ready tasks
             while ready_queue and len(in_flight) < num_threads:
                 test_case_id = ready_queue.popleft()
@@ -333,7 +339,6 @@ def generate_results(args, model_name, test_cases_total):
 
 
 def main(args):
-
     # Note: The following environment variables are needed for the memory vector store implementation
     # Otherwise you get segfault or huggingface tokenizer warnings
     # disable HuggingFace tokenizers’ thread pool
@@ -349,10 +354,9 @@ def main(args):
     if type(args.test_category) is not list:
         args.test_category = [args.test_category]
 
-    (
-        all_test_categories,
-        all_test_entries_involved,
-    ) = get_involved_test_entries(args.test_category, args.run_ids)
+    (all_test_categories, all_test_entries_involved) = get_involved_test_entries(
+        args.test_category, args.run_ids
+    )
 
     for model_name in args.model:
         if model_name not in MODEL_CONFIG_MAPPING:
@@ -367,7 +371,9 @@ def main(args):
     else:
         tqdm.write(f"Running full test cases for categories: {all_test_categories}.")
 
-    if any(is_format_sensitivity(test_category) for test_category in all_test_categories):
+    if any(
+        is_format_sensitivity(test_category) for test_category in all_test_categories
+    ):
         for model_name in args.model:
             if MODEL_CONFIG_MAPPING[model_name].is_fc_model:
                 tqdm.write(
@@ -382,10 +388,7 @@ def main(args):
 
     for model_name in args.model:
         test_cases_total = collect_test_cases(
-            args,
-            model_name,
-            all_test_categories,
-            deepcopy(all_test_entries_involved),
+            args, model_name, all_test_categories, deepcopy(all_test_entries_involved)
         )
 
         if len(test_cases_total) == 0:

@@ -1,4 +1,3 @@
-import json
 import os
 import time
 
@@ -22,17 +21,15 @@ class FCAgentCompletionsHandler(BaseHandler):
     def __init__(
         self,
         *args,
+        agent_params: dict | None = None,
         agent_url: str = "http://localhost:8001/chat",
-        n: int | None = None,
-        consensus: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.model_style = ModelStyle.OPENAI_COMPLETIONS
 
-        self.agent_url = os.getenv("FC_AGENT_AGENT_URL") or agent_url
-        self.n = os.getenv("FC_AGENT_N") or n
-        self.consensus = os.getenv("FC_AGENT_CONSENSUS") or consensus
+        self._agent_url = os.getenv("FC_AGENT_AGENT_URL") or agent_url
+        self._agent_params = agent_params
 
     def decode_ast(self, result, language, has_tool_call_tag):
         decoded_output = []
@@ -48,7 +45,9 @@ class FCAgentCompletionsHandler(BaseHandler):
     @retry_with_backoff(error_type=RateLimitError)
     def generate_with_backoff(self, **kwargs):
         start_time = time.time()
-        response = requests.post(url=self.agent_url, json=kwargs).json()
+        response = requests.post(
+            url=self._agent_url, json={**self._agent_params, **kwargs}
+        ).json()
         end_time = time.time()
         return response, end_time - start_time
 
@@ -68,12 +67,7 @@ class FCAgentCompletionsHandler(BaseHandler):
             "tools": tools,
         }
 
-        kwargs = {
-            "messages": new_messages,
-            "temperature": self.temperature,
-            "n": self.n,
-            "consensus": self.consensus,
-        }
+        kwargs = {"messages": new_messages, "temperature": self.temperature}
 
         if len(tools) > 0:
             kwargs["tools"] = tools
