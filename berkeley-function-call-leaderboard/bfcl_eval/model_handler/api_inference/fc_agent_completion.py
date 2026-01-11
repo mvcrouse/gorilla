@@ -29,7 +29,11 @@ class FCAgentCompletionsHandler(BaseHandler):
         self.model_style = ModelStyle.OPENAI_COMPLETIONS
 
         self._agent_url = os.getenv("FC_AGENT_AGENT_URL") or agent_url
-        self._agent_params = agent_params
+        self._agent_params = agent_params or dict()
+        self._agent_params["model_params"] = {
+            "temperature": self.temperature,
+            **self._agent_params.get("model_params", dict()),
+        }
 
     def decode_ast(self, result, language, has_tool_call_tag):
         decoded_output = []
@@ -67,7 +71,7 @@ class FCAgentCompletionsHandler(BaseHandler):
             "tools": tools,
         }
 
-        kwargs = {"messages": new_messages, "temperature": self.temperature}
+        kwargs = {"messages": new_messages}
 
         if len(tools) > 0:
             kwargs["tools"] = tools
