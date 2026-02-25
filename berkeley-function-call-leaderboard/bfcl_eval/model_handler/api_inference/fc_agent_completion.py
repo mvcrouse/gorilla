@@ -8,8 +8,8 @@ from bfcl_eval.constants.enums import ModelStyle
 from bfcl_eval.constants.type_mappings import GORILLA_TO_OPENAPI
 from bfcl_eval.model_handler.base_handler import BaseHandler
 from bfcl_eval.model_handler.utils import (
-    convert_to_function_call,
     convert_to_tool,
+    decoded_output_to_execution_list,
     retry_with_backoff,
 )
 
@@ -25,15 +25,13 @@ class FCAgentCompletionsHandler(BaseHandler):
         agent_url: str = "http://localhost:8001/chat",
         **kwargs,
     ) -> None:
+        """ """
         super().__init__(*args, **kwargs)
         self.model_style = ModelStyle.OPENAI_COMPLETIONS
 
+        #
         self._agent_url = os.getenv("FC_AGENT_AGENT_URL") or agent_url
-        self._agent_params = agent_params or dict()
-        self._agent_params["model_params"] = {
-            "temperature": self.temperature,
-            **self._agent_params.get("model_params", dict()),
-        }
+        self._agent_params = {"agent": agent_params or dict()}
 
     def decode_ast(self, result, language, has_tool_call_tag):
         decoded_output = []
@@ -44,7 +42,10 @@ class FCAgentCompletionsHandler(BaseHandler):
         return decoded_output
 
     def decode_execute(self, result, has_tool_call_tag):
-        return convert_to_function_call(result)
+        decoded = self.decode_ast(
+            result, language=None, has_tool_call_tag=has_tool_call_tag
+        )
+        return decoded_output_to_execution_list(decoded)
 
     @retry_with_backoff(error_type=RateLimitError)
     def generate_with_backoff(self, **kwargs):
@@ -57,24 +58,18 @@ class FCAgentCompletionsHandler(BaseHandler):
 
     #### FC methods ####
 
-    def _query_FC(self, inference_data: dict):
-        messages: list[dict] = inference_data["messages"] + []
+    def _query_prompting(self, inference_data: dict):
+        return self._query_FC(inference_data)
 
-        new_messages = []
-        while messages and messages[-1]["role"] != "assistant":
-            new_messages.append(messages.pop())
-        new_messages.reverse()
+    def _query_FC(self, inference_data: dict):
+        messages: list[dict] = inference_data["messages"]
 
         tools = inference_data["tools"]
         inference_data["inference_input_log"] = {
-            "messages": repr(new_messages),
+            "messages": repr(messages),
             "tools": tools,
         }
-
-        kwargs = {"messages": new_messages}
-
-        if len(tools) > 0:
-            kwargs["tools"] = tools
+        kwargs = {"messages": messages, "tools": tools}
 
         return self.generate_with_backoff(**kwargs)
 
@@ -135,14 +130,8 @@ class FCAgentCompletionsHandler(BaseHandler):
         model_response_data: dict,
     ) -> dict:
         # Add the execution results to the current round result, one at a time
-        for execution_result, tool_call_id in zip(
-            execution_results, model_response_data["tool_call_ids"]
-        ):
-            tool_message = {
-                "role": "tool",
-                "content": execution_result,
-                "tool_call_id": tool_call_id,
-            }
+        for execution_result in execution_results:
+            tool_message = {"role": "tool", "content": execution_result}
             inference_data["messages"].append(tool_message)
 
         return inference_data
